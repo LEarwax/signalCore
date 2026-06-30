@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+dist/
+.pytest_cache/
+
+# Alembic
+api/alembic/versions/*.pyc
+
+# Next.js
+web/.next/
+web/node_modules/
+web/out/
+
+# Env
+.env
+.env.local
+.env.production
+
+# Generated output
+output/
+*.pdf
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
