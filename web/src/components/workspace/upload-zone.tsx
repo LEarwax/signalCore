@@ -5,56 +5,69 @@ import type { Sheet } from "@/types";
 
 interface Props {
   projectId: string;
-  onSheetsExtracted: (fileName: string, sheets: Sheet[]) => void;
-}
-
-// Simulated extraction — replace with real API call when SIG-1 is implemented
-function simulateExtraction(fileName: string): Sheet[] {
-  return [
-    { id: "s1", page_number: 1,  label: "G-001 COVER SHEET",               type: "other",      thumbnail_url: null },
-    { id: "s2", page_number: 2,  label: "A-001 SITE PLAN",                  type: "other",      thumbnail_url: null },
-    { id: "s3", page_number: 3,  label: "A-101 FLOOR PLAN — LEVEL 1",       type: "floor_plan", thumbnail_url: null },
-    { id: "s4", page_number: 4,  label: "A-102 FLOOR PLAN — LEVEL 2",       type: "floor_plan", thumbnail_url: null },
-    { id: "s5", page_number: 5,  label: "A-103 FLOOR PLAN — LEVEL 3",       type: "floor_plan", thumbnail_url: null },
-    { id: "s6", page_number: 6,  label: "A-104 FLOOR PLAN — ROOF",          type: "floor_plan", thumbnail_url: null },
-    { id: "s7", page_number: 7,  label: "A-201 EAST ELEVATION",             type: "elevation",  thumbnail_url: null },
-    { id: "s8", page_number: 8,  label: "A-202 WEST ELEVATION",             type: "elevation",  thumbnail_url: null },
-    { id: "s9", page_number: 9,  label: "A-301 BUILDING SECTION A",         type: "section",    thumbnail_url: null },
-    { id: "s10", page_number: 10, label: "A-401 STAIR DETAIL",              type: "detail",     thumbnail_url: null },
-  ];
+  onSheetsExtracted: (fileName: string, sheets: Sheet[], uploadId: string) => void;
 }
 
 export function UploadZone({ projectId, onSheetsExtracted }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [extracting, setExtracting] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [statusText, setStatusText] = useState("Uploading…");
+  const [error, setError] = useState<string | null>(null);
 
   const handleFile = useCallback(
     async (file: File) => {
       if (!file.name.toLowerCase().endsWith(".pdf")) {
-        alert("Please upload a PDF file.");
+        setError("Please upload a PDF file.");
         return;
       }
-      setExtracting(true);
-      setProgress(0);
-      // Simulate extraction progress
-      const interval = setInterval(() => {
-        setProgress((p) => {
-          if (p >= 90) { clearInterval(interval); return 90; }
-          return p + 10;
+
+      setError(null);
+      setUploading(true);
+      setStatusText("Uploading…");
+
+      try {
+        const form = new FormData();
+        form.append("file", file);
+
+        setStatusText("Extracting sheets…");
+
+        const res = await fetch(`/api/projects/${projectId}/upload`, {
+          method: "POST",
+          body: form,
         });
-      }, 150);
-      await new Promise((r) => setTimeout(r, 2000));
-      clearInterval(interval);
-      setProgress(100);
-      await new Promise((r) => setTimeout(r, 300));
-      const sheets = simulateExtraction(file.name);
-      setExtracting(false);
-      setProgress(0);
-      onSheetsExtracted(file.name, sheets);
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({ detail: "Upload failed" }));
+          throw new Error(err.detail ?? "Upload failed");
+        }
+
+        const data = await res.json();
+
+        // Map API response to Sheet type
+        const sheets: Sheet[] = data.sheets.map((s: {
+          id: string;
+          page_number: number;
+          label: string;
+          type: string;
+          thumbnail_url: string | null;
+        }) => ({
+          id: s.id,
+          page_number: s.page_number,
+          label: s.label,
+          type: s.type as Sheet["type"],
+          thumbnail_url: s.thumbnail_url,
+        }));
+
+        onSheetsExtracted(file.name, sheets, data.upload_id);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Upload failed. Please try again.");
+      } finally {
+        setUploading(false);
+        setStatusText("Uploading…");
+      }
     },
-    [onSheetsExtracted]
+    [projectId, onSheetsExtracted]
   );
 
   const onDrop = useCallback(
@@ -79,15 +92,17 @@ export function UploadZone({ projectId, onSheetsExtracted }: Props) {
     <div className="flex-1 flex items-center justify-center p-10">
       <div
         className={[
-          "w-full max-w-xl border-2 border-dashed rounded-xl p-16 flex flex-col items-center gap-4 transition cursor-pointer",
-          dragging
-            ? "border-orange-500 bg-orange-500/5"
-            : "border-gray-700 hover:border-gray-500 bg-gray-900/50",
+          "w-full max-w-xl border-2 border-dashed rounded-xl p-16 flex flex-col items-center gap-4 transition",
+          uploading
+            ? "border-orange-500/50 bg-gray-900/50 cursor-not-allowed"
+            : dragging
+            ? "border-orange-500 bg-orange-500/5 cursor-pointer"
+            : "border-gray-700 hover:border-gray-500 bg-gray-900/50 cursor-pointer",
         ].join(" ")}
-        onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
+        onDragOver={(e) => { e.preventDefault(); if (!uploading) setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        onClick={() => !extracting && inputRef.current?.click()}
+        onClick={() => !uploading && inputRef.current?.click()}
       >
         <input
           ref={inputRef}
@@ -97,17 +112,11 @@ export function UploadZone({ projectId, onSheetsExtracted }: Props) {
           onChange={onInputChange}
         />
 
-        {extracting ? (
+        {uploading ? (
           <>
             <div className="w-12 h-12 rounded-full border-2 border-orange-500 border-t-transparent animate-spin" />
-            <p className="text-sm text-gray-300 font-medium">Extracting sheets…</p>
-            <div className="w-48 h-1.5 bg-gray-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-orange-500 rounded-full transition-all duration-150"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-500">{progress}%</p>
+            <p className="text-sm text-gray-300 font-medium">{statusText}</p>
+            <p className="text-xs text-gray-500">This may take a moment for large plan sets</p>
           </>
         ) : (
           <>
@@ -121,9 +130,13 @@ export function UploadZone({ projectId, onSheetsExtracted }: Props) {
               <p className="text-base font-semibold text-gray-200">Drop plan set PDF here</p>
               <p className="text-sm text-gray-500 mt-1">or click to browse</p>
             </div>
-            <p className="text-xs text-gray-600">
-              Supports architectural plan sets — all sheet types detected automatically
-            </p>
+            {error ? (
+              <p className="text-sm text-red-400 text-center">{error}</p>
+            ) : (
+              <p className="text-xs text-gray-600">
+                Supports architectural plan sets — all sheet types detected automatically
+              </p>
+            )}
           </>
         )}
       </div>

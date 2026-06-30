@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.routers import projects, ahj, packets, share
+from app.routers import projects, ahj, packets, share, uploads
 
 
 @asynccontextmanager
@@ -45,6 +45,7 @@ app.include_router(projects.router)
 app.include_router(ahj.router)
 app.include_router(packets.router)
 app.include_router(share.router)
+app.include_router(uploads.router)
 
 
 @app.get("/health")

@@ -19,12 +19,14 @@ export function Workspace({ project }: Props) {
   const { user } = useUser();
   const [step, setStep] = useState<WorkspaceStep>("upload");
   const [fileName, setFileName] = useState<string | null>(null);
+  const [uploadId, setUploadId] = useState<string | null>(null);
   const [sheets, setSheets] = useState<Sheet[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  const handleSheetsExtracted = useCallback((name: string, extracted: Sheet[]) => {
+  const handleSheetsExtracted = useCallback((name: string, extracted: Sheet[], uid: string) => {
     setFileName(name);
     setSheets(extracted);
+    setUploadId(uid);
     // Auto-select floor plans
     const floorIds = extracted.filter((s) => s.type === "floor_plan").map((s) => s.id);
     setSelectedIds(floorIds);
