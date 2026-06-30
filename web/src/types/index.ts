@@ -48,6 +48,16 @@ export interface SubmittalPacket {
   updated_at: string;
 }
 
+export type SheetType = "floor_plan" | "elevation" | "section" | "detail" | "other";
+
+export interface Sheet {
+  id: string;
+  page_number: number;
+  label: string;
+  type: SheetType;
+  thumbnail_url: string | null;
+}
+
 export interface ShareableLink {
   id: string;
   packet_id: string;

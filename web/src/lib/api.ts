@@ -20,6 +20,10 @@ async function fetchWithAuth(path: string, token: string, options?: RequestInit)
 
 // ── Projects ──────────────────────────────────────────────────────
 
+export async function getProject(token: string, projectId: string): Promise<Project> {
+  return fetchWithAuth(`/api/projects/${projectId}`, token);
+}
+
 export async function getProjects(token: string): Promise<Project[]> {
   return fetchWithAuth("/api/projects/", token);
 }

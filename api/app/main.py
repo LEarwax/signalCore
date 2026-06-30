@@ -14,9 +14,14 @@ from app.routers import projects, ahj, packets, share
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Run Alembic migrations on startup
-    async with engine.begin() as conn:
-        # In dev: auto-create tables; in prod use alembic upgrade head
-        await conn.run_sync(Base.metadata.create_all)
+    from alembic.config import Config
+    from alembic import command
+    import asyncio
+
+    alembic_cfg = Config("alembic.ini")
+    await asyncio.get_event_loop().run_in_executor(
+        None, lambda: command.upgrade(alembic_cfg, "head")
+    )
     yield
     await engine.dispose()
 
