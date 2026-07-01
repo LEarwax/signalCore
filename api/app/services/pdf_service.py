@@ -12,14 +12,14 @@ Thumbnails are intentionally skipped at upload time (null → gray placeholder
 in UI). They will be generated per-selected-sheet at engine run time (SIG-3).
 """
 
+import asyncio
 import io
 import re
 import uuid
 import logging
-from collections import defaultdict
 from typing import List, Tuple
 
-import pdfplumber
+import fitz  # PyMuPDF
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.upload import PDFUpload, Sheet
@@ -28,52 +28,22 @@ from app.services.storage_service import storage
 logger = logging.getLogger(__name__)
 
 
-# ── CID FONT DECODE (ported from core/geometry.py) ───────────────────────────
+# ── TEXT EXTRACTION (PyMuPDF) ─────────────────────────────────────────────────
 
-def _detect_cid_offset(chars: list) -> int:
-    """Auto-detect CID→ASCII encoding offset (typically 29 for Arial subsets)."""
-    best, score = 29, 0
-    for offset in range(0, 50):
-        s = sum(
-            1 for c in chars[:500]
-            if "(cid:" in c.get("text", "")
-            and 32 <= (int(c["text"].split(":")[1].rstrip(")")) + offset) <= 122
-        )
-        if s > score:
-            score, best = s, offset
-    return best
-
-
-def _decode_page_text(page) -> Tuple[list, str]:
+def _extract_page_text(page: fitz.Page, page_width: float, page_height: float) -> Tuple[list, str]:
     """
-    Decode all characters on a pdfplumber page into row-grouped lines.
-    Returns (rows, corpus) where rows = [(top, x0, text), ...] and corpus is
+    Extract text blocks from a PyMuPDF page.
+    Returns (rows, corpus) where rows = [(y, x, text), ...] and corpus is
     the full uppercased text joined into one string.
     """
-    chars = page.chars
-    offset = _detect_cid_offset(chars)
-    row_map: dict = defaultdict(list)
-    for c in chars:
-        row_map[round(c["top"] / 2) * 2].append(c)
-
+    blocks = page.get_text("blocks")  # (x0, y0, x1, y1, text, block_no, block_type)
     rows = []
-    for top_key in sorted(row_map.keys()):
-        row = sorted(row_map[top_key], key=lambda x: x["x0"])
-        decoded = ""
-        xs = []
-        for c in row:
-            txt = c.get("text", "")
-            xs.append(c["x0"])
-            if "(cid:" in txt:
-                try:
-                    cid = int(txt.split(":")[1].rstrip(")"))
-                    decoded += chr(cid + offset) if 32 <= cid + offset <= 126 else "."
-                except Exception:
-                    decoded += "."
-            elif txt:
-                decoded += txt[0]
-        if decoded.strip():
-            rows.append((top_key, min(xs) if xs else 0, decoded.strip()))
+    for b in blocks:
+        if b[6] != 0:  # skip non-text blocks
+            continue
+        text = b[4].strip()
+        if text:
+            rows.append((b[1], b[0], text))  # (y0, x0, text)
 
     corpus = " ".join(t for _, _, t in rows).upper()
     return rows, corpus
@@ -189,34 +159,44 @@ async def process_upload(
         logger.error("Storage upload failed: %s", exc)
         pdf_key = None  # non-fatal — continue with extraction
 
-    # Extract sheets
-    sheets: List[Sheet] = []
-    page_count = 0
-
-    try:
-        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            page_count = len(pdf.pages)
-            for i, page in enumerate(pdf.pages, start=1):
+    # Extract sheets — run in thread so the event loop stays alive
+    def _extract_sheets() -> Tuple[int, List[dict]]:
+        results = []
+        try:
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            count = doc.page_count
+            for i in range(count):
+                page_num = i + 1
                 try:
-                    rows, corpus = _decode_page_text(page)
+                    page = doc[i]
+                    w, h = page.rect.width, page.rect.height
+                    rows, corpus = _extract_page_text(page, w, h)
                     sheet_type = _classify_sheet_type(corpus)
-                    label = _extract_label(rows, page.width, page.height, i)
+                    label = _extract_label(rows, w, h, page_num)
+                    page = None  # release page reference
                 except Exception as page_exc:
-                    logger.warning("Page %d decode error: %s", i, page_exc)
+                    logger.warning("Page %d decode error: %s", page_num, page_exc)
                     sheet_type = "other"
-                    label = f"Page {i}"
+                    label = f"Page {page_num}"
+                results.append({"page_number": page_num, "label": label, "sheet_type": sheet_type})
+            doc.close()
+            return count, results
+        except Exception as exc:
+            logger.error("PyMuPDF failed: %s", exc)
+            return 0, []
 
-                sheets.append(Sheet(
-                    upload_id=upload_id,
-                    page_number=i,
-                    label=label,
-                    sheet_type=sheet_type,
-                    thumbnail_url=None,  # generated at engine run time
-                ))
-    except Exception as exc:
-        logger.error("pdfplumber failed: %s", exc)
-        # Return a failed upload with zero sheets rather than crashing
-        page_count = 0
+    page_count, sheet_dicts = await asyncio.to_thread(_extract_sheets)
+
+    sheets: List[Sheet] = [
+        Sheet(
+            upload_id=upload_id,
+            page_number=d["page_number"],
+            label=d["label"],
+            sheet_type=d["sheet_type"],
+            thumbnail_url=None,
+        )
+        for d in sheet_dicts
+    ]
 
     # Persist to DB
     db_upload = PDFUpload(

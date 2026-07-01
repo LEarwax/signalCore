@@ -28,10 +28,20 @@ async def _get_jwks() -> dict:
 async def verify_token(credentials: HTTPAuthorizationCredentials = Security(bearer_scheme)) -> dict:
     token = credentials.credentials
     try:
+        header = jwt.get_unverified_header(token)
+        kid = header.get("kid")
+
         jwks = await _get_jwks()
+        rsa_key = next(
+            (k for k in jwks.get("keys", []) if k.get("kid") == kid),
+            None,
+        )
+        if rsa_key is None:
+            raise HTTPException(status_code=401, detail="No matching JWKS key found")
+
         payload = jwt.decode(
             token,
-            jwks,
+            rsa_key,
             algorithms=["RS256"],
             audience=settings.AUTH0_AUDIENCE,
             issuer=f"https://{settings.AUTH0_DOMAIN}/",

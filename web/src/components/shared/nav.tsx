@@ -1,10 +1,9 @@
-"use client";
-
 import Link from "next/link";
-import { useUser } from "@auth0/nextjs-auth0/client";
+import { auth0 } from "@/lib/auth0";
 
-export function Nav() {
-  const { user } = useUser();
+export async function Nav() {
+  const session = await auth0.getSession();
+  const user = session?.user;
 
   return (
     <nav className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between">
@@ -16,7 +15,7 @@ export function Nav() {
           <>
             <span className="text-sm text-gray-400">{user.email}</span>
             <a
-              href="/api/auth/logout"
+              href="/auth/logout"
               className="text-sm text-gray-400 hover:text-gray-100"
             >
               Sign out
@@ -24,7 +23,7 @@ export function Nav() {
           </>
         ) : (
           <a
-            href="/api/auth/login"
+            href="/auth/login"
             className="text-sm font-medium text-orange-600 hover:text-orange-700"
           >
             Sign in

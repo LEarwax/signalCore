@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from "react";
 import Link from "next/link";
-import { useUser } from "@auth0/nextjs-auth0/client";
 import type { Project, Sheet } from "@/types";
 import { WorkspaceSidebar } from "@/components/workspace/sidebar";
 import { UploadZone } from "@/components/workspace/upload-zone";
@@ -13,10 +12,10 @@ type WorkspaceStep = "upload" | "select" | "running" | "results";
 
 interface Props {
   project: Project;
+  userEmail?: string | null;
 }
 
-export function Workspace({ project }: Props) {
-  const { user } = useUser();
+export function Workspace({ project, userEmail }: Props) {
   const [step, setStep] = useState<WorkspaceStep>("upload");
   const [fileName, setFileName] = useState<string | null>(null);
   const [uploadId, setUploadId] = useState<string | null>(null);
@@ -53,6 +52,9 @@ export function Workspace({ project }: Props) {
   const handleBack = useCallback(() => {
     setStep("select");
   }, []);
+
+  // suppress unused var warning — uploadId used in future SIG-3
+  void uploadId;
 
   return (
     <div className="h-screen flex flex-col bg-gray-950">
@@ -91,11 +93,11 @@ export function Workspace({ project }: Props) {
 
         <div className="flex-1" />
 
-        {user && (
-          <span className="text-xs text-gray-500 hidden md:block">{user.email}</span>
+        {userEmail && (
+          <span className="text-xs text-gray-500 hidden md:block">{userEmail}</span>
         )}
         <a
-          href="/api/auth/logout"
+          href="/auth/logout"
           className="text-xs text-gray-500 hover:text-gray-200 transition"
         >
           Sign out

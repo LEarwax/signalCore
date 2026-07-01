@@ -1,14 +1,14 @@
-import { getSession } from "@auth0/nextjs-auth0";
 import { redirect } from "next/navigation";
+import { auth0 } from "@/lib/auth0";
 import { Nav } from "@/components/shared/nav";
 import { ProjectList } from "@/components/projects/project-list";
 import { getProjects } from "@/lib/api";
 
 export default async function DashboardPage() {
-  const session = await getSession();
-  if (!session) redirect("/api/auth/login");
+  const session = await auth0.getSession();
+  if (!session) redirect("/auth/login");
 
-  const projects = await getProjects(session.accessToken!).catch(() => []);
+  const projects = await getProjects(session.tokenSet.accessToken).catch(() => []);
 
   return (
     <div className="min-h-screen">

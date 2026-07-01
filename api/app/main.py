@@ -17,11 +17,19 @@ async def lifespan(app: FastAPI):
     from alembic.config import Config
     from alembic import command
     import asyncio
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    from app.services.ahj_service import seed_ahj_records
 
     alembic_cfg = Config("alembic.ini")
     await asyncio.get_event_loop().run_in_executor(
         None, lambda: command.upgrade(alembic_cfg, "head")
     )
+
+    # Seed AHJ records if table is empty
+    async with AsyncSession(engine) as session:
+        await seed_ahj_records(session)
+
     yield
     await engine.dispose()
 

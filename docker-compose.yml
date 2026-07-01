@@ -33,6 +33,10 @@ services:
     volumes:
       - ./api:/app
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    deploy:
+      resources:
+        limits:
+          memory: 2g
 
   web:
     image: node:20-alpine
@@ -42,11 +46,12 @@ services:
     environment:
       API_URL: http://api:8000           # server-side (container → container)
       NEXT_PUBLIC_API_URL: http://localhost:8000  # browser-side
-      AUTH0_SECRET: ${AUTH0_SECRET}
-      AUTH0_BASE_URL: http://localhost:3000
-      AUTH0_ISSUER_BASE_URL: https://${AUTH0_DOMAIN}
+      AUTH0_DOMAIN: ${AUTH0_DOMAIN}
       AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID}
       AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET}
+      AUTH0_SECRET: ${AUTH0_SECRET}
+      AUTH0_AUDIENCE: ${AUTH0_AUDIENCE}
+      APP_BASE_URL: http://localhost:3000
     volumes:
       - ./web:/app
       - /app/node_modules
