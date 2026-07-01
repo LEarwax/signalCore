@@ -1,3 +1,4 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +13,17 @@ class Settings(BaseSettings):
     S3_BUCKET: str = "signalcore-files"
     WEB_URL: str = "http://localhost:3000"
     API_URL: str = "http://localhost:8000"
+
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def fix_postgres_scheme(cls, v: str) -> str:
+        """
+        Render (and Heroku) provide DATABASE_URL as postgres://...
+        asyncpg requires postgresql+asyncpg://...
+        """
+        if isinstance(v, str) and v.startswith("postgres://"):
+            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        return v
 
 
 settings = Settings()
