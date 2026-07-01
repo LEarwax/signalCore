@@ -1,6 +1,7 @@
 import type { Project, AHJProfile, SubmittalPacket } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// API_URL for server-side (container→container in Docker); NEXT_PUBLIC_API_URL for browser
+const API_URL = process.env.API_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function fetchWithAuth(path: string, token: string, options?: RequestInit) {
   const res = await fetch(`${API_URL}${path}`, {
