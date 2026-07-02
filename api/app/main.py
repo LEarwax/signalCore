@@ -26,12 +26,18 @@ async def lifespan(app: FastAPI):
     try:
         logger.info("Running Alembic migrations...")
         alembic_cfg = Config("alembic.ini")
-        await asyncio.get_event_loop().run_in_executor(
-            None, lambda: command.upgrade(alembic_cfg, "head")
-        )
+
+        def _run_migrations():
+            try:
+                command.upgrade(alembic_cfg, "head")
+            except Exception as inner:
+                logger.error("Alembic upgrade error: %s", inner, exc_info=True)
+                raise
+
+        await asyncio.get_event_loop().run_in_executor(None, _run_migrations)
         logger.info("Migrations complete.")
     except Exception as e:
-        logger.error("Migration failed: %s", e, exc_info=True)
+        logger.error("Migration failed (outer): %s", e, exc_info=True)
         raise
 
     try:
