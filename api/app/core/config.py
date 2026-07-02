@@ -18,11 +18,19 @@ class Settings(BaseSettings):
     @classmethod
     def fix_postgres_scheme(cls, v: str) -> str:
         """
-        Render (and Heroku) provide DATABASE_URL as postgres://...
-        asyncpg requires postgresql+asyncpg://...
+        Normalize DATABASE_URL for asyncpg:
+        - postgres:// -> postgresql+asyncpg://
+        - postgresql:// -> postgresql+asyncpg://
+        - sslmode=require -> ssl=require (asyncpg uses 'ssl' not 'sslmode')
         """
-        if isinstance(v, str) and v.startswith("postgres://"):
-            return v.replace("postgres://", "postgresql+asyncpg://", 1)
+        if not isinstance(v, str):
+            return v
+        if v.startswith("postgres://"):
+            v = v.replace("postgres://", "postgresql+asyncpg://", 1)
+        elif v.startswith("postgresql://"):
+            v = v.replace("postgresql://", "postgresql+asyncpg://", 1)
+        # asyncpg uses ssl=require, not sslmode=require
+        v = v.replace("sslmode=require", "ssl=require")
         return v
 
 
