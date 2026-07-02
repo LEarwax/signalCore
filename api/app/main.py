@@ -13,22 +13,35 @@ from app.routers import projects, ahj, packets, share, uploads
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Run Alembic migrations on startup
+    import logging
+    import asyncio
     from alembic.config import Config
     from alembic import command
-    import asyncio
     from sqlalchemy.ext.asyncio import AsyncSession
-
     from app.services.ahj_service import seed_ahj_records
 
-    alembic_cfg = Config("alembic.ini")
-    await asyncio.get_event_loop().run_in_executor(
-        None, lambda: command.upgrade(alembic_cfg, "head")
-    )
+    logger = logging.getLogger("signalcore.startup")
+    logging.basicConfig(level=logging.INFO)
 
-    # Seed AHJ records if table is empty
-    async with AsyncSession(engine) as session:
-        await seed_ahj_records(session)
+    try:
+        logger.info("Running Alembic migrations...")
+        alembic_cfg = Config("alembic.ini")
+        await asyncio.get_event_loop().run_in_executor(
+            None, lambda: command.upgrade(alembic_cfg, "head")
+        )
+        logger.info("Migrations complete.")
+    except Exception as e:
+        logger.error("Migration failed: %s", e, exc_info=True)
+        raise
+
+    try:
+        logger.info("Seeding AHJ records...")
+        async with AsyncSession(engine) as session:
+            await seed_ahj_records(session)
+        logger.info("Seeding complete.")
+    except Exception as e:
+        logger.error("Seeding failed: %s", e, exc_info=True)
+        raise
 
     yield
     await engine.dispose()
