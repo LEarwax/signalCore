@@ -8,9 +8,7 @@ services:
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
-        fromDatabase:
-          name: signalcore-db
-          property: connectionString
+        sync: false   # set to Neon connection string
       - key: AUTH0_DOMAIN
         sync: false
       - key: AUTH0_AUDIENCE
@@ -23,8 +21,3 @@ services:
         value: signalcore-files
       - key: WEB_URL
         sync: false   # set to your Vercel URL after deploy
-
-databases:
-  - name: signalcore-db
-    databaseName: signalcore
-    plan: free
