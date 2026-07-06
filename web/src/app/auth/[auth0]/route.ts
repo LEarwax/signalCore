@@ -1,3 +1,10 @@
-// Auth routes are handled automatically by the Auth0 v4 middleware.
-// This file intentionally left empty.
-export {};
+import { auth0 } from "@/lib/auth0";
+import { NextRequest } from "next/server";
+
+export async function GET(request: NextRequest) {
+  return auth0.handler(request);
+}
+
+export async function POST(request: NextRequest) {
+  return auth0.handler(request);
+}
