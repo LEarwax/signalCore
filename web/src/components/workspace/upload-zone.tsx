@@ -27,13 +27,21 @@ export function UploadZone({ projectId, onSheetsExtracted }: Props) {
       setStatusText("Uploading…");
 
       try {
+        // Get access token client-side so we can upload directly to the API,
+        // bypassing Vercel's 4.5 MB serverless body limit.
+        const tokenRes = await fetch("/auth/access-token");
+        if (!tokenRes.ok) throw new Error("Could not retrieve auth token");
+        const { token } = await tokenRes.json();
+
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "";
         const form = new FormData();
         form.append("file", file);
 
         setStatusText("Extracting sheets…");
 
-        const res = await fetch(`/api/projects/${projectId}/upload`, {
+        const res = await fetch(`${apiUrl}/api/projects/${projectId}/upload`, {
           method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
           body: form,
         });
 
@@ -44,7 +52,8 @@ export function UploadZone({ projectId, onSheetsExtracted }: Props) {
 
         const data = await res.json();
 
-        // Map API response to Sheet type
+        // Map API response to Sheet type.
+        // Prefix relative thumbnail URLs (local-storage fallback) with the API origin.
         const sheets: Sheet[] = data.sheets.map((s: {
           id: string;
           page_number: number;
@@ -56,7 +65,9 @@ export function UploadZone({ projectId, onSheetsExtracted }: Props) {
           page_number: s.page_number,
           label: s.label,
           type: s.type as Sheet["type"],
-          thumbnail_url: s.thumbnail_url,
+          thumbnail_url: s.thumbnail_url?.startsWith("/")
+            ? `${apiUrl}${s.thumbnail_url}`
+            : s.thumbnail_url ?? null,
         }));
 
         onSheetsExtracted(file.name, sheets, data.upload_id);
