@@ -187,13 +187,40 @@ async def process_upload(
 
     page_count, sheet_dicts = await asyncio.to_thread(_extract_sheets)
 
+    # Generate thumbnails using PyMuPDF (0.5x scale ≈ 72 DPI — fast and small)
+    def _render_thumbnails() -> dict:
+        thumbs: dict = {}
+        try:
+            doc = fitz.open(stream=file_bytes, filetype="pdf")
+            for i in range(doc.page_count):
+                try:
+                    mat = fitz.Matrix(0.5, 0.5)
+                    pix = doc[i].get_pixmap(matrix=mat, alpha=False)
+                    thumbs[i + 1] = pix.tobytes("jpeg")
+                except Exception as e:
+                    logger.warning("Thumbnail render failed for page %d: %s", i + 1, e)
+            doc.close()
+        except Exception as e:
+            logger.error("Thumbnail generation failed: %s", e)
+        return thumbs
+
+    thumbnail_bytes = await asyncio.to_thread(_render_thumbnails)
+
+    thumbnail_urls: dict = {}
+    for page_num, img_bytes in thumbnail_bytes.items():
+        try:
+            thumb_key = f"uploads/{project_id}/{upload_id}/thumbs/{page_num}.jpg"
+            thumbnail_urls[page_num] = storage.upload(thumb_key, img_bytes, content_type="image/jpeg")
+        except Exception as e:
+            logger.warning("Thumbnail storage failed for page %d: %s", page_num, e)
+
     sheets: List[Sheet] = [
         Sheet(
             upload_id=upload_id,
             page_number=d["page_number"],
             label=d["label"],
             sheet_type=d["sheet_type"],
-            thumbnail_url=None,
+            thumbnail_url=thumbnail_urls.get(d["page_number"]),
         )
         for d in sheet_dicts
     ]
