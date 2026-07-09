@@ -140,25 +140,20 @@ export function FloorPlanView({ sheets, selectedIds, onBack }: Props) {
           >
             {activeSheet ? (
               <div className="relative rounded-lg overflow-hidden border border-gray-800 shadow-2xl">
-                {/* Placeholder floor plan */}
-                <div className="w-[600px] h-[800px] bg-gray-900 flex flex-col">
-                  {/* Mock floor plan outline */}
-                  <div className="flex-1 relative p-8">
-                    {/* Outer walls */}
-                    <div className="absolute inset-8 border-2 border-gray-500 rounded">
-                      {/* Room dividers */}
-                      <div className="absolute top-1/3 left-0 right-0 border-t border-gray-600" />
-                      <div className="absolute top-2/3 left-0 right-0 border-t border-gray-600" />
-                      <div className="absolute top-0 bottom-0 left-1/2 border-l border-gray-600" />
-                      {/* Sheet label */}
-                      <div className="absolute bottom-2 left-2 right-2 flex items-end justify-between">
-                        <span className="text-[10px] text-gray-500 font-mono">{activeSheet.label}</span>
-                      </div>
-                    </div>
+                {activeSheet.thumbnail_url ? (
+                  /* ── Real floor plan image ── */
+                  <div className="relative bg-gray-950" style={{ maxWidth: "900px" }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={activeSheet.thumbnail_url}
+                      alt={activeSheet.label}
+                      className="block w-full"
+                      draggable={false}
+                    />
 
                     {/* Antenna overlay (Layout / Both) */}
                     {(viewMode === "layout" || viewMode === "both") && (
-                      <>
+                      <div className="absolute inset-0">
                         {[
                           { x: 30, y: 25 },
                           { x: 65, y: 25 },
@@ -172,41 +167,104 @@ export function FloorPlanView({ sheets, selectedIds, onBack }: Props) {
                             style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: "translate(-50%, -50%)" }}
                           >
                             {/* Coverage ring */}
-                            <div className="w-20 h-20 rounded-full border border-orange-500/30 bg-orange-500/5 absolute"
-                              style={{ transform: "translate(-50%, -50%)", left: "50%", top: "50%" }} />
+                            <div
+                              className="w-20 h-20 rounded-full border border-orange-500/50 bg-orange-500/10 absolute"
+                              style={{ transform: "translate(-50%, -50%)", left: "50%", top: "50%" }}
+                            />
                             {/* Antenna dot */}
-                            <div className="w-3 h-3 rounded-full bg-orange-500 border-2 border-white shadow relative z-10" />
+                            <div className="w-3 h-3 rounded-full bg-orange-500 border-2 border-white shadow-lg relative z-10" />
                           </div>
                         ))}
-                      </>
+                      </div>
                     )}
 
                     {/* Heatmap overlay (Heatmap / Both) */}
                     {(viewMode === "heatmap" || viewMode === "both") && (
-                      <div className="absolute inset-8 pointer-events-none">
+                      <div className="absolute inset-0 pointer-events-none">
                         <div
-                          className="w-full h-full rounded"
+                          className="w-full h-full"
                           style={{
                             background:
-                              "radial-gradient(ellipse at 30% 30%, rgba(34,197,94,0.25) 0%, transparent 50%), " +
-                              "radial-gradient(ellipse at 70% 30%, rgba(34,197,94,0.25) 0%, transparent 50%), " +
-                              "radial-gradient(ellipse at 30% 65%, rgba(34,197,94,0.25) 0%, transparent 50%), " +
-                              "radial-gradient(ellipse at 70% 65%, rgba(34,197,94,0.25) 0%, transparent 50%), " +
-                              "radial-gradient(ellipse at 50% 47%, rgba(34,197,94,0.2) 0%, transparent 45%)",
+                              "radial-gradient(ellipse at 30% 30%, rgba(34,197,94,0.3) 0%, transparent 50%), " +
+                              "radial-gradient(ellipse at 70% 30%, rgba(34,197,94,0.3) 0%, transparent 50%), " +
+                              "radial-gradient(ellipse at 30% 65%, rgba(34,197,94,0.3) 0%, transparent 50%), " +
+                              "radial-gradient(ellipse at 70% 65%, rgba(34,197,94,0.3) 0%, transparent 50%), " +
+                              "radial-gradient(ellipse at 50% 47%, rgba(34,197,94,0.25) 0%, transparent 45%)",
                           }}
                         />
                       </div>
                     )}
-                  </div>
 
-                  {/* Title block */}
-                  <div className="border-t border-gray-700 px-4 py-2 flex items-center justify-between bg-gray-900">
-                    <span className="text-[10px] text-gray-500 font-mono">signalCore / ERRCS</span>
-                    <span className="text-[10px] text-gray-500 font-mono">
-                      {new Date().toLocaleDateString()}
-                    </span>
+                    {/* Title block */}
+                    <div className="border-t border-gray-800 px-4 py-2 flex items-center justify-between bg-gray-950/90">
+                      <span className="text-[10px] text-gray-500 font-mono">
+                        signalCore / ERRCS — {activeSheet.label}
+                      </span>
+                      <span className="text-[10px] text-gray-500 font-mono">
+                        {new Date().toLocaleDateString()}
+                      </span>
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  /* ── Placeholder when no thumbnail ── */
+                  <div className="w-[600px] h-[800px] bg-gray-900 flex flex-col">
+                    <div className="flex-1 relative p-8">
+                      <div className="absolute inset-8 border-2 border-gray-600 rounded">
+                        <div className="absolute top-1/3 left-0 right-0 border-t border-gray-700" />
+                        <div className="absolute top-2/3 left-0 right-0 border-t border-gray-700" />
+                        <div className="absolute top-0 bottom-0 left-1/2 border-l border-gray-700" />
+                        <div className="absolute bottom-2 left-2 right-2">
+                          <span className="text-[10px] text-gray-500 font-mono">{activeSheet.label}</span>
+                        </div>
+                      </div>
+
+                      {(viewMode === "layout" || viewMode === "both") && (
+                        <>
+                          {[
+                            { x: 30, y: 25 },
+                            { x: 65, y: 25 },
+                            { x: 30, y: 60 },
+                            { x: 65, y: 60 },
+                            { x: 48, y: 42 },
+                          ].map((pos, i) => (
+                            <div
+                              key={i}
+                              className="absolute"
+                              style={{ left: `${pos.x}%`, top: `${pos.y}%`, transform: "translate(-50%, -50%)" }}
+                            >
+                              <div className="w-20 h-20 rounded-full border border-orange-500/30 bg-orange-500/5 absolute"
+                                style={{ transform: "translate(-50%, -50%)", left: "50%", top: "50%" }} />
+                              <div className="w-3 h-3 rounded-full bg-orange-500 border-2 border-white shadow relative z-10" />
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {(viewMode === "heatmap" || viewMode === "both") && (
+                        <div className="absolute inset-8 pointer-events-none">
+                          <div
+                            className="w-full h-full rounded"
+                            style={{
+                              background:
+                                "radial-gradient(ellipse at 30% 30%, rgba(34,197,94,0.25) 0%, transparent 50%), " +
+                                "radial-gradient(ellipse at 70% 30%, rgba(34,197,94,0.25) 0%, transparent 50%), " +
+                                "radial-gradient(ellipse at 30% 65%, rgba(34,197,94,0.25) 0%, transparent 50%), " +
+                                "radial-gradient(ellipse at 70% 65%, rgba(34,197,94,0.25) 0%, transparent 50%), " +
+                                "radial-gradient(ellipse at 50% 47%, rgba(34,197,94,0.2) 0%, transparent 45%)",
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="border-t border-gray-700 px-4 py-2 flex items-center justify-between bg-gray-900">
+                      <span className="text-[10px] text-gray-500 font-mono">signalCore / ERRCS</span>
+                      <span className="text-[10px] text-gray-500 font-mono">
+                        {new Date().toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-sm text-gray-600">No sheet selected.</p>
